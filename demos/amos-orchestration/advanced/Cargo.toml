@@ -1,0 +1,27 @@
+[package]
+name = "amos-advanced-demos"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "emergent-consensus"
+path = "emergent-consensus.rs"
+
+[[bin]]
+name = "stress-response"
+path = "stress-response.rs"
+
+[dependencies]
+amos-core = { path = "../../../crates/amos-core" }
+amos-agents = { path = "../../../crates/amos-agents" }
+amos-swarm = { path = "../../../crates/amos-swarm" }
+amos-neural = { path = "../../../crates/amos-neural" }
+tokio = { version = "1.40", features = ["full"] }
+async-trait = "0.1"
+uuid = { version = "1.11", features = ["v4"] }
+chrono = "0.4"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+rand = "0.8"
+dashmap = "6.0"

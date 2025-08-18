@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  amos:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - AMOS_LOG_LEVEL=info
+      - AMOS_MAX_AGENTS=50
+      - RUST_LOG=info
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add PostgreSQL for production
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: amos
+  #     POSTGRES_PASSWORD: amos_secret
+  #     POSTGRES_DB: amos_db
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  postgres_data:

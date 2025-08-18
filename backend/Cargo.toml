@@ -1,0 +1,44 @@
+[package]
+name = "amos-deploy-server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "amos-deploy-server"
+path = "src/main.rs"
+
+[dependencies]
+# AMOS crates - using path dependencies
+amos-core = { path = "../crates/amos-core" }
+amos-agents = { path = "../crates/amos-agents" }
+amos-swarm = { path = "../crates/amos-swarm" }
+amos-neural = { path = "../crates/amos-neural" }
+
+# Web framework
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "fs"] }
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# WebSocket support
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
+# Utils
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+dotenv = "0.15"
+
+# Required by amos-core
+num_cpus = "1.16"

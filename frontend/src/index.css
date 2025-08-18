@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-amos-darker text-gray-100 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .amos-panel {
+    @apply bg-amos-dark border border-gray-800 rounded-lg shadow-2xl;
+  }
+
+  .amos-button {
+    @apply px-4 py-2 bg-amos-accent text-black font-semibold rounded-md hover:bg-amos-accent-dim transition-colors duration-200;
+  }
+
+  .amos-button-secondary {
+    @apply px-4 py-2 bg-gray-800 text-gray-100 font-semibold rounded-md hover:bg-gray-700 transition-colors duration-200;
+  }
+
+  .amos-input {
+    @apply w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amos-accent focus:border-transparent;
+  }
+
+  .amos-glow {
+    @apply animate-glow;
+  }
+}
+
+/* React Flow customization */
+.react-flow__node {
+  @apply bg-gray-900 border-2 border-gray-700 rounded-lg shadow-lg;
+}
+
+.react-flow__node.selected {
+  @apply border-amos-accent;
+}
+
+.react-flow__edge-path {
+  @apply stroke-gray-600;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  @apply stroke-amos-accent;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}

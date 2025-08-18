@@ -1,0 +1,29 @@
+[package]
+name = "amos-swarm"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Swarm orchestration for AMOS agents"
+
+[dependencies]
+amos-core = { path = "../amos-core" }
+amos-agents = { path = "../amos-agents" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+dashmap.workspace = true
+futures.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+tokio-test.workspace = true
+pretty_assertions.workspace = true

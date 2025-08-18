@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMOS Neural Network Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at center, #0a0f1b 0%, #000000 100%);
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+        }
+        
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #64c8ff;
+            text-shadow: 0 0 10px rgba(100, 200, 255, 0.5);
+        }
+        
+        .metric {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .metric-label {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .metric-value {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #2a5298, #1e3c72);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(100, 200, 255, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .agent-legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .agent-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .agent-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(100, 200, 255, 0.3);
+            border-top: 3px solid #64c8ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading AMOS Neural Network...</p>
+    </div>
+    
+    <div id="info" style="display: none;">
+        <h1>AMOS Neural Network</h1>
+        <div class="metric">
+            <span class="metric-label">Neurons</span>
+            <span class="metric-value" id="neuronCount">0</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Synapses</span>
+            <span class="metric-value" id="synapseCount">0</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Active Agents</span>
+            <span class="metric-value" id="agentCount">0</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">Neural Activity</span>
+            <span class="metric-value" id="activity">0%</span>
+        </div>
+        <div class="metric">
+            <span class="metric-label">FPS</span>
+            <span class="metric-value" id="fps">0</span>
+        </div>
+    </div>
+    
+    <div class="agent-legend" style="display: none;">
+        <h3 style="margin: 0 0 10px 0; color: #64c8ff;">Active Agents</h3>
+        <div class="agent-item">
+            <div class="agent-color" style="background: #ff6b6b;"></div>
+            <span>Traffic Seer</span>
+        </div>
+        <div class="agent-item">
+            <div class="agent-color" style="background: #4ecdc4;"></div>
+            <span>Memory Weaver</span>
+        </div>
+        <div class="agent-item">
+            <div class="agent-color" style="background: #45b7d1;"></div>
+            <span>Learning Oracle</span>
+        </div>
+        <div class="agent-item">
+            <div class="agent-color" style="background: #96ceb4;"></div>
+            <span>Pathway Sculptor</span>
+        </div>
+        <div class="agent-item">
+            <div class="agent-color" style="background: #dda0dd;"></div>
+            <span>Mesh Harmonizer</span>
+        </div>
+    </div>
+    
+    <div id="controls" style="display: none;">
+        <button onclick="toggleAnimation()">Toggle Animation</button>
+        <button onclick="addNeuralActivity()">Stimulate Network</button>
+        <button onclick="resetNetwork()">Reset Network</button>
+        <button onclick="changeTopology()">Change Topology</button>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Network state
+        let neurons = [];
+        let synapses = [];
+        let agents = [];
+        let animationRunning = true;
+        let frame = 0;
+        let lastTime = 0;
+        let fps = 0;
+        let currentTopology = 'mesh';
+
+        // Agent colors
+        const agentColors = {
+            'Traffic Seer': '#ff6b6b',
+            'Memory Weaver': '#4ecdc4',
+            'Learning Oracle': '#45b7d1',
+            'Pathway Sculptor': '#96ceb4',
+            'Mesh Harmonizer': '#dda0dd'
+        };
+
+        // Neuron class
+        class Neuron {
+            constructor(x, y, layer) {
+                this.x = x;
+                this.y = y;
+                this.layer = layer;
+                this.activity = Math.random() * 0.3;
+                this.targetActivity = this.activity;
+                this.connections = [];
+                this.radius = 3 + Math.random() * 2;
+                this.pulsePhase = Math.random() * Math.PI * 2;
+                this.agent = null;
+            }
+
+            update() {
+                // Smooth activity transitions
+                this.activity += (this.targetActivity - this.activity) * 0.1;
+                
+                // Random activity fluctuations
+                if (Math.random() < 0.01) {
+                    this.targetActivity = Math.random();
+                }
+                
+                // Pulse animation
+                this.pulsePhase += 0.05;
+                
+                // Agent influence
+                if (this.agent) {
+                    this.activity = Math.min(1, this.activity + 0.02);
+                }
+            }
+
+            draw() {
+                const pulse = Math.sin(this.pulsePhase) * 0.5 + 0.5;
+                const size = this.radius + pulse * 2 * this.activity;
+                
+                // Glow effect
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, size * 3);
+                
+                if (this.agent) {
+                    gradient.addColorStop(0, this.agent.color);
+                    gradient.addColorStop(1, 'transparent');
+                } else {
+                    const intensity = Math.floor(100 + this.activity * 155);
+                    gradient.addColorStop(0, `rgba(${intensity}, ${intensity}, 255, ${this.activity})`);
+                    gradient.addColorStop(1, 'transparent');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, size * 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Core
+                ctx.fillStyle = this.agent ? this.agent.color : '#64c8ff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Synapse class
+        class Synapse {
+            constructor(from, to) {
+                this.from = from;
+                this.to = to;
+                this.strength = Math.random() * 0.5 + 0.5;
+                this.active = false;
+                this.pulsePosition = 0;
+            }
+
+            update() {
+                // Propagate activity
+                if (this.from.activity > 0.7 && Math.random() < 0.1) {
+                    this.active = true;
+                    this.pulsePosition = 0;
+                }
+                
+                if (this.active) {
+                    this.pulsePosition += 0.05;
+                    if (this.pulsePosition > 1) {
+                        this.active = false;
+                        this.to.targetActivity = Math.min(1, this.to.activity + this.strength * 0.3);
+                    }
+                }
+            }
+
+            draw() {
+                const opacity = this.from.activity * this.to.activity * 0.3;
+                
+                ctx.strokeStyle = `rgba(100, 200, 255, ${opacity})`;
+                ctx.lineWidth = this.strength;
+                ctx.beginPath();
+                ctx.moveTo(this.from.x, this.from.y);
+                ctx.lineTo(this.to.x, this.to.y);
+                ctx.stroke();
+                
+                // Draw pulse
+                if (this.active) {
+                    const x = this.from.x + (this.to.x - this.from.x) * this.pulsePosition;
+                    const y = this.from.y + (this.to.y - this.from.y) * this.pulsePosition;
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Agent class
+        class Agent {
+            constructor(name, color) {
+                this.name = name;
+                this.color = color;
+                this.neurons = [];
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.targetX = this.x;
+                this.targetY = this.y;
+            }
+
+            update() {
+                // Move towards target
+                this.x += (this.targetX - this.x) * 0.05;
+                this.y += (this.targetY - this.y) * 0.05;
+                
+                // Random movement
+                if (Math.random() < 0.02) {
+                    this.targetX = Math.random() * canvas.width;
+                    this.targetY = Math.random() * canvas.height;
+                }
+                
+                // Influence nearby neurons
+                neurons.forEach(neuron => {
+                    const dist = Math.hypot(neuron.x - this.x, neuron.y - this.y);
+                    if (dist < 100) {
+                        neuron.agent = this;
+                    } else if (neuron.agent === this) {
+                        neuron.agent = null;
+                    }
+                });
+            }
+
+            draw() {
+                // Agent glow
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 50);
+                gradient.addColorStop(0, this.color + '40');
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 50, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Agent core
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.name, this.x, this.y - 15);
+            }
+        }
+
+        // Initialize network
+        function initializeNetwork(topology = 'mesh') {
+            neurons = [];
+            synapses = [];
+            agents = [];
+            
+            // Create neurons based on topology
+            if (topology === 'mesh') {
+                // Mesh topology
+                for (let i = 0; i < 150; i++) {
+                    const angle = (i / 150) * Math.PI * 2;
+                    const radius = 100 + Math.random() * 200;
+                    const x = canvas.width / 2 + Math.cos(angle) * radius;
+                    const y = canvas.height / 2 + Math.sin(angle) * radius;
+                    neurons.push(new Neuron(x, y, 0));
+                }
+            } else if (topology === 'hierarchical') {
+                // Hierarchical topology
+                const levels = 5;
+                const neuronsPerLevel = 30;
+                for (let level = 0; level < levels; level++) {
+                    for (let i = 0; i < neuronsPerLevel; i++) {
+                        const x = (canvas.width / (neuronsPerLevel + 1)) * (i + 1);
+                        const y = (canvas.height / (levels + 1)) * (level + 1);
+                        neurons.push(new Neuron(x + (Math.random() - 0.5) * 50, y + (Math.random() - 0.5) * 50, level));
+                    }
+                }
+            } else if (topology === 'ring') {
+                // Ring topology
+                const count = 100;
+                const radius = Math.min(canvas.width, canvas.height) * 0.35;
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const x = canvas.width / 2 + Math.cos(angle) * radius;
+                    const y = canvas.height / 2 + Math.sin(angle) * radius;
+                    neurons.push(new Neuron(x, y, 0));
+                }
+            }
+            
+            // Create synapses
+            neurons.forEach((neuron, i) => {
+                // Connect to nearby neurons
+                neurons.forEach((other, j) => {
+                    if (i !== j) {
+                        const dist = Math.hypot(neuron.x - other.x, neuron.y - other.y);
+                        if (dist < 150 && Math.random() < 0.3) {
+                            synapses.push(new Synapse(neuron, other));
+                        }
+                    }
+                });
+            });
+            
+            // Create agents
+            Object.entries(agentColors).forEach(([name, color]) => {
+                agents.push(new Agent(name, color));
+            });
+            
+            // Update UI
+            updateMetrics();
+            
+            // Hide loading, show UI
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('controls').style.display = 'block';
+            document.querySelector('.agent-legend').style.display = 'block';
+        }
+
+        // Update metrics
+        function updateMetrics() {
+            document.getElementById('neuronCount').textContent = neurons.length;
+            document.getElementById('synapseCount').textContent = synapses.length;
+            document.getElementById('agentCount').textContent = agents.length;
+            
+            const avgActivity = neurons.reduce((sum, n) => sum + n.activity, 0) / neurons.length;
+            document.getElementById('activity').textContent = Math.round(avgActivity * 100) + '%';
+            document.getElementById('fps').textContent = Math.round(fps);
+        }
+
+        // Animation loop
+        function animate(currentTime) {
+            if (!animationRunning) {
+                requestAnimationFrame(animate);
+                return;
+            }
+            
+            // Calculate FPS
+            if (lastTime !== 0) {
+                const delta = currentTime - lastTime;
+                fps = 1000 / delta;
+            }
+            lastTime = currentTime;
+            
+            // Clear canvas
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update and draw synapses
+            synapses.forEach(synapse => {
+                synapse.update();
+                synapse.draw();
+            });
+            
+            // Update and draw neurons
+            neurons.forEach(neuron => {
+                neuron.update();
+                neuron.draw();
+            });
+            
+            // Update and draw agents
+            agents.forEach(agent => {
+                agent.update();
+                agent.draw();
+            });
+            
+            // Update metrics every 10 frames
+            if (frame % 10 === 0) {
+                updateMetrics();
+            }
+            
+            frame++;
+            requestAnimationFrame(animate);
+        }
+
+        // Control functions
+        function toggleAnimation() {
+            animationRunning = !animationRunning;
+        }
+
+        function addNeuralActivity() {
+            // Stimulate random neurons
+            for (let i = 0; i < 20; i++) {
+                const neuron = neurons[Math.floor(Math.random() * neurons.length)];
+                neuron.targetActivity = 1;
+            }
+        }
+
+        function resetNetwork() {
+            initializeNetwork(currentTopology);
+        }
+
+        function changeTopology() {
+            const topologies = ['mesh', 'hierarchical', 'ring'];
+            const currentIndex = topologies.indexOf(currentTopology);
+            currentTopology = topologies[(currentIndex + 1) % topologies.length];
+            initializeNetwork(currentTopology);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initializeNetwork(currentTopology);
+        });
+
+        // Initialize and start
+        setTimeout(() => {
+            initializeNetwork();
+            requestAnimationFrame(animate);
+        }, 1000);
+    </script>
+</body>
+</html>

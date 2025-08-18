@@ -1,0 +1,384 @@
+use axum::{
+    Router,
+    routing::{get, post},
+    response::{Json, IntoResponse},
+    extract::{State, ws::{WebSocket, WebSocketUpgrade, Message}},
+    http::{StatusCode, Method},
+};
+use tower_http::{
+    services::ServeDir,
+    cors::{CorsLayer, Any},
+    trace::TraceLayer,
+};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use serde::{Deserialize};
+use uuid::Uuid;
+use tracing::{info, error, debug};
+use std::time::Duration;
+use futures_util::{SinkExt, StreamExt};
+use tokio::sync::broadcast;
+
+// Import AMOS components
+use amos_core::{
+    neural::{ForgeNeuralNetwork, NodeType},
+    event_bus::EventBus,
+    system::SystemInfo,
+};
+use amos_swarm::{AmosSwarm, SwarmTopology};
+use amos_agents::{
+    AgentRegistry,
+    TrafficSeer, PathwaySculptor, MemoryWeaver, CognitionAlchemist,
+    LearningOracle, MeshHarmonizer, ConsciousnessEmergent, PerformanceGuardian,
+};
+
+/// Application state shared across handlers
+#[derive(Clone)]
+struct AppState {
+    neural_network: Arc<ForgeNeuralNetwork>,
+    swarm: Arc<RwLock<AmosSwarm>>,
+    agent_registry: Arc<RwLock<AgentRegistry>>,
+    event_bus: Arc<EventBus>,
+    system_info: SystemInfo,
+    // Broadcast channel for WebSocket events
+    event_tx: broadcast::Sender<String>,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("amos_deploy_backend=debug".parse()?)
+                .add_directive("tower_http=debug".parse()?)
+        )
+        .init();
+
+    info!("Starting AMOS deployment server...");
+
+    // Initialize AMOS components
+    let neural_network = Arc::new(ForgeNeuralNetwork::new());
+    let event_bus = Arc::new(EventBus::new());
+    let system_info = SystemInfo::gather();
+    let agent_registry = Arc::new(RwLock::new(AgentRegistry::new(
+        neural_network.clone(),
+        event_bus.clone(),
+    )));
+
+    // Initialize swarm with mesh topology
+    let swarm = Arc::new(RwLock::new(AmosSwarm::new(
+        "main-swarm".to_string(),
+        SwarmTopology::Mesh { max_connections: 10 },
+        neural_network.clone(),
+    )));
+
+    // Create broadcast channel for WebSocket events
+    let (event_tx, _) = broadcast::channel(100);
+
+    // Create app state
+    let state = AppState {
+        neural_network,
+        swarm,
+        agent_registry,
+        event_bus,
+        system_info,
+        event_tx,
+    };
+
+    // Build routes
+    let app = Router::new()
+        // Health endpoint
+        .route("/api/health", get(health_handler))
+        // Neural network endpoints
+        .route("/api/neural/status", get(neural_status_handler))
+        .route("/api/neural/create-node", post(create_node_handler))
+        .route("/api/neural/create-pathway", post(create_pathway_handler))
+        // Agent management endpoints
+        .route("/api/agents/list", get(list_agents_handler))
+        .route("/api/agents/spawn", post(spawn_agent_handler))
+        // Swarm endpoints
+        .route("/api/swarm/status", get(swarm_status_handler))
+        // System monitoring
+        .route("/api/system/info", get(system_info_handler))
+        // WebSocket endpoint
+        .route("/ws", get(websocket_handler))
+        .with_state(state)
+        // Serve static files from frontend build
+        .nest_service("/", ServeDir::new(
+            std::env::var("AMOS_STATIC_DIR").unwrap_or_else(|_| "static".to_string())
+        ))
+        // Add CORS support
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+                .allow_headers(Any)
+                .max_age(Duration::from_secs(3600))
+        )
+        // Add tracing
+        .layer(TraceLayer::new_for_http());
+
+    // Get port from environment
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+
+    info!("AMOS server listening on {}", addr);
+
+    // Start server
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+// Health check handler
+async fn health_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "status": "healthy",
+        "service": "AMOS Deploy",
+        "version": env!("CARGO_PKG_VERSION"),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
+// Neural network status
+async fn neural_status_handler(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let node_count = state.neural_network.node_count().await;
+    let pathway_count = state.neural_network.pathway_count().await;
+    
+    Json(serde_json::json!({
+        "status": "active",
+        "metrics": {
+            "nodes": node_count,
+            "pathways": pathway_count,
+        },
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateNodeRequest {
+    node_type: String,
+}
+
+// Create a new neural node
+async fn create_node_handler(
+    State(state): State<AppState>,
+    Json(request): Json<CreateNodeRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let node_type = match request.node_type.as_str() {
+        "memory" => NodeType::Memory,
+        "thinking" => NodeType::Thinking,
+        "agent" => NodeType::Agent,
+        "mcp" => NodeType::MCP,
+        "gateway" => NodeType::Gateway,
+        "shadow" => NodeType::Shadow,
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let node_id = state.neural_network.add_node(node_type).await;
+    
+    // Broadcast event
+    let _ = state.event_tx.send(format!("Node created: {}", node_id));
+
+    Ok(Json(serde_json::json!({
+        "id": node_id,
+        "type": request.node_type,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+struct CreatePathwayRequest {
+    source: Uuid,
+    target: Uuid,
+    strength: Option<f64>,
+}
+
+// Create a neural pathway
+async fn create_pathway_handler(
+    State(state): State<AppState>,
+    Json(request): Json<CreatePathwayRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let strength = request.strength.unwrap_or(0.1);
+    let pathway_id = state.neural_network.create_pathway(
+        request.source,
+        request.target,
+        strength
+    ).await;
+    
+    // Broadcast event
+    let _ = state.event_tx.send(format!("Pathway created: {} -> {}", request.source, request.target));
+
+    Ok(Json(serde_json::json!({
+        "id": pathway_id,
+        "source": request.source,
+        "target": request.target,
+        "strength": strength,
+    })))
+}
+
+// List all agents
+async fn list_agents_handler(State(state): State<AppState>) -> Json<serde_json::Value> {
+    // Since AgentRegistry doesn't expose a direct count/list method,
+    // we'll return a placeholder for now
+    Json(serde_json::json!({
+        "agents": [],
+        "count": 0,
+        "message": "Agent listing endpoint - implementation pending",
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct SpawnAgentRequest {
+    agent_type: String,
+    name: Option<String>,
+}
+
+// Spawn a new agent
+async fn spawn_agent_handler(
+    State(state): State<AppState>,
+    Json(request): Json<SpawnAgentRequest>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let mut registry = state.agent_registry.write().await;
+    
+    // Create agent based on type
+    let agent: Box<dyn amos_agents::CognitiveAgent> = match request.agent_type.as_str() {
+        "traffic_seer" => Box::new(TrafficSeer::new()),
+            request.name.as_deref().unwrap_or("Traffic Seer")
+        )),
+        "pathway_sculptor" => Box::new(PathwaySculptor::new()),
+            request.name.as_deref().unwrap_or("Pathway Sculptor")
+        )),
+        "memory_weaver" => Box::new(MemoryWeaver::new()),
+            request.name.as_deref().unwrap_or("Memory Weaver")
+        )),
+        "cognition_alchemist" => Box::new(CognitionAlchemist::new()),
+            request.name.as_deref().unwrap_or("Cognition Alchemist")
+        )),
+        "learning_oracle" => Box::new(LearningOracle::new()),
+            request.name.as_deref().unwrap_or("Learning Oracle")
+        )),
+        "mesh_harmonizer" => Box::new(MeshHarmonizer::new()),
+            request.name.as_deref().unwrap_or("Mesh Harmonizer")
+        )),
+        "consciousness_emergent" => Box::new(ConsciousnessEmergent::new()),
+            request.name.as_deref().unwrap_or("Consciousness Emergent")
+        )),
+        "performance_guardian" => Box::new(PerformanceGuardian::new()),
+            request.name.as_deref().unwrap_or("Performance Guardian")
+        )),
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let agent_id = agent.id();
+    let agent_name = agent.name().to_string();
+
+    // Spawn agent
+    match registry.spawn_agent(agent).await {
+        Ok(agent_id) => {
+            info!("Spawned agent: {} ({})", agent_id, request.agent_type);
+            
+            // Broadcast event
+            let _ = state.event_tx.send(format!("Agent spawned: {} ({})", agent_name, agent_id));
+            
+            Ok(Json(serde_json::json!({
+                "id": agent_id,
+                "type": request.agent_type,
+                "name": agent_name,
+                "status": "spawned",
+            })))
+        }
+        Err(e) => {
+            error!("Failed to spawn agent: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+// Get swarm status
+async fn swarm_status_handler(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let swarm = state.swarm.read().await;
+    let agents = swarm.agents.read().await;
+    
+    Json(serde_json::json!({
+        "id": swarm.id,
+        "name": swarm.name,
+        "topology": format!("{:?}", swarm.topology),
+        "agent_count": agents.len(),
+        "status": "active",
+    }))
+}
+
+// Get system info
+async fn system_info_handler(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "system": {
+            "os": state.system_info.os,
+            "architecture": state.system_info.architecture,
+            "cpu_count": state.system_info.cpu_count,
+            "memory_mb": state.system_info.memory_mb,
+        },
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
+// WebSocket handler
+async fn websocket_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_websocket(socket, state))
+}
+
+// Handle WebSocket connection
+async fn handle_websocket(socket: WebSocket, state: AppState) {
+    let (mut sender, mut receiver) = socket.split();
+    let mut event_rx = state.event_tx.subscribe();
+
+    // Send initial connection message
+    let _ = sender.send(Message::Text(
+        serde_json::json!({
+            "type": "connected",
+            "message": "Connected to AMOS WebSocket",
+        }).to_string()
+    )).await;
+
+    // Spawn task to forward events to WebSocket
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(event) = event_rx.recv().await {
+            let event_json = serde_json::json!({
+                "type": "event",
+                "data": event,
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+            });
+
+            if sender.send(Message::Text(event_json.to_string())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Spawn task to handle incoming messages
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            match msg {
+                Message::Text(text) => {
+                    debug!("Received WebSocket message: {}", text);
+                    // Handle incoming commands if needed
+                }
+                Message::Close(_) => {
+                    debug!("WebSocket closed");
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    // Wait for either task to complete
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
+    }
+}

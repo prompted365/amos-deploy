@@ -1,0 +1,21 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "./Dockerfile"
+
+[deploy]
+startCommand = "/app/amos-api"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+healthcheckPath = "/api/health"
+healthcheckTimeout = 3
+
+[[services]]
+name = "web"
+port = 8080
+protocol = "TCP"
+
+[variables]
+PORT = { type = "string", default = "8080" }
+AMOS_LOG_LEVEL = { type = "string", default = "info" }
+AMOS_MAX_AGENTS = { type = "number", default = 50 }
+RAILWAY_ENVIRONMENT = { type = "string", default = "production" }
