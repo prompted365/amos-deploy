@@ -26,26 +26,6 @@ npm install -g @railway/cli
 ./deploy.sh deploy
 ```
 
-## 📁 Project Structure
-
-```
-amos-deploy/
-├── backend/          # Axum API server
-│   ├── src/
-│   │   └── main.rs   # API endpoints & WebSocket
-│   └── Cargo.toml    # Rust dependencies
-├── frontend/         # React dashboard
-│   ├── src/
-│   │   ├── App.tsx   # Main dashboard
-│   │   └── components/
-│   └── package.json  # Node dependencies
-├── docker/           # Docker configuration
-├── config/           # Environment configs
-├── Dockerfile        # Multi-stage build
-├── docker-compose.yml # Local testing
-├── deploy.sh         # Deployment script
-└── README.md         # This file
-```
 
 ## 🎯 Features
 
